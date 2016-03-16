@@ -4,12 +4,6 @@ var tofly = {
 		w: 1200,
 		h: 350,
 		background: 0x010122,
-		me: {
-			/*
-			w: 10,
-			h: 50
-			*/
-		},
 		images: {
 			disk: {
 				url: 'img/disk.png',
@@ -21,11 +15,11 @@ var tofly = {
 };
 
 $(function(){
+	tofly.storage = {clients: {}, stars: {}};
 	tofly.initGraphics();
 	tofly.initSockets();
-	//adding resize handler
+
 	$(window).resize(function() {
-		//console.log(1);
 	  	tofly.resize();
 	});
 });
@@ -33,31 +27,21 @@ $(function(){
 tofly.initGraphics = function(){
 	this.renderer = PIXI.autoDetectRenderer(this.config.w, this.config.h,{backgroundColor : this.config.background});
 	document.body.appendChild(this.renderer.view);
+	$(this.renderer.view).mousemove(function(e){
+		tofly.doMove(e);
+	});
 
 	// create the root of the scene graph
 	this.stage1 = new PIXI.Container();
 	// create the root of the scene graph
-	this.background = new PIXI.Container();
-	this.stage1.addChild(this.background);
+	this.layerBackground = new PIXI.Container();
+	this.stage1.addChild(this.layerBackground);
+	this.layerClients = new PIXI.Container();
+	this.stage1.addChild(this.layerClients);
 
 	// create a texture from an image path
 	var texture = PIXI.Texture.fromImage(this.config.images.disk.url);
-	// create a new Sprite using the texture
 
-	//ME
-	this.me = new PIXI.Sprite(texture);
-	// center the sprite's anchor point
-	this.me.anchor.x = 0.5;
-	this.me.anchor.y = 0.5;
-	this.me.kw = 1 / this.config.images.disk.w;
-	this.me.kh = 1 / this.config.images.disk.h;
-
-	// move the sprite to the center of the screen
-	this.me.position.x = this.config.w / 2;
-	this.me.position.y =  this.config.h / 2;
-	this.me.rotation = 0; 	
-
-	// start animating
 	tofly.animate();
 }
 
@@ -76,23 +60,29 @@ tofly.initSockets = function (){
 	this.socket.emit('respawn', { data: {'action': 'respawn'}});
 }
 
+tofly.doMove = function(e) {
+	this.socket.emit('move', { x: e.clientX, y: e.clientY});
+	//console.log({ x: e.clientX, y: e.clientY});
+}
+
 tofly.doTick = function(data){
-	this.updateMe(data);
+	this.updateClients(data.clients);
 	this.drawBackground(data.stars);
 }
 
 tofly.doRespawn = function(data){
-	/*
-	this.me.scale.x = this.me.kw * data.user.w;
-	this.me.scale.y = this.me.kh * data.user.h;
-	this.me.rotation = data.user.a;
-	*/
-	this.stage1.addChild(this.me);
+	//do nothing
 }
 
 tofly.drawBackground = function(stars) {
-	if(!this.background.children.length) {
-		for(var i = 0; i < stars.length; i++) {
+	for(var i = 0; i < stars.length; i++) {
+		//checking if star exists
+		if(this.storage.stars[stars[i].id]) {
+			this.storage.stars[stars[i].id].position.x = stars[i].x;
+			this.storage.stars[stars[i].id].position.y = stars[i].y;
+			this.storage.stars[stars[i].id].justUpdated = true;
+		}
+		else {
 			var star = new PIXI.Graphics();
 			star.position.x = stars[i].x;
 			star.position.y = stars[i].y;
@@ -100,35 +90,63 @@ tofly.drawBackground = function(stars) {
 			// set fill and line style
 			star.beginFill(stars[i].color);
 			//star.lineStyle(0.1, 0xeeeeff, 1);
-			star.drawCircle(0, 0, Math.ceil(stars[i].z / 8));
-			star.endFill();
+			//star.drawCircle(0, 0, Math.ceil(stars[i].z / 8));
+			star.drawRect(0,0,1,1);
 
-			this.background.addChild(star);
-		}
+			star.endFill();
+			star.justUpdated = true;
+
+			this.layerBackground.addChild(star);
+			this.storage.stars[stars[i].id] = star;
+		}	
 	}
-	else if (this.background.children.length == stars.length) {
-		for(var i = 0; i < stars.length; i++) {
-			var star = this.background.children[i];
-			star.position.x = stars[i].x;
-			star.position.y = stars[i].y;
+	for(var id in this.storage.stars) {
+		if(!this.storage.stars[id].justUpdated) {
+			//debugger;
+			this.layerBackground.removeChild(this.storage.stars[id]);
+			delete this.storage.stars[i];
+			continue;
 		}
-	}
-	else {
-		console.log('stars problem');
+		this.storage.stars[id].justUpdated = false;
 	}
 }
 
-tofly.updateMe = function(data) {
-	console.log(data.me);
-	this.me.position.x = data.me.x;
-	this.me.position.y = data.me.y;
-	this.me.scale.x = this.me.kw * data.me.w;
-	this.me.scale.y = this.me.kh * data.me.h;
-	this.me.rotation = data.me.a;
+tofly.updateClients = function(clients) {
+	for(var i = 0; i < clients.length; i++) {
+		//checking if client exists
+		if(this.storage.clients[clients[i].id]) {
+			this.storage.clients[clients[i].id].position.x = clients[i].x;
+			this.storage.clients[clients[i].id].position.y = clients[i].y;
+			this.storage.clients[clients[i].id].justUpdated = true;
+		}
+		else {
+			var client = new PIXI.Graphics();
+			client.position.x = clients[i].x;
+			client.position.y = clients[i].y;
+
+			// set fill and line style
+			client.beginFill(0xeeeeff);
+			//star.lineStyle(0.1, 0xeeeeff, 1);
+			client.drawCircle(0, 0, 10);
+			client.endFill();
+			client.justUpdated = true;
+
+			this.layerClients.addChild(client);
+			this.storage.clients[clients[i].id] = client;
+		}	
+	}
+	for(var id in this.storage.clients) {
+		if(!this.storage.clients[id].justUpdated) {
+			//debugger;
+			this.layerClients.removeChild(this.storage.clients[id]);
+			delete this.storage.clients[i];
+			continue;
+		}
+		this.storage.clients[id].justUpdated = false;
+	}
 }
 
 tofly.resize = function() {
-	//debugger;
     this.renderer.resize(window.innerWidth, window.innerHeight);
     this.socket.emit('resize', { w: window.innerWidth, h: window.innerHeight});
 }
