@@ -11,48 +11,41 @@ namespace tofly
 {
     public class flyHub : Hub
     {
-        static int globalCounter = 0;
-        static Dictionary<string, Client> AppClients = new Dictionary<string, Client>();
-        static IHubCallerConnectionContext cl;
-
-        public Client CurrentClient { get { return AppClients[Context.ConnectionId]; } }
-
+        static Fly App = new Fly();
+        static IHubCallerConnectionContext Sockets;
         static Timer mainTimer;
 
-        static flyHub() 
-        {
-            mainTimer = new Timer();
-            mainTimer.Elapsed += new ElapsedEventHandler(MainTick);
-            mainTimer.Interval = 1000;
-            mainTimer.Start();
-        }
+        public Client CurrentClient { get { return App.Clients[Context.ConnectionId]; } }
 
         static void MainTick(object sender, ElapsedEventArgs e)
         {
-            cl.All.Tick("Hello");
+            Sockets.All.Tick(App.GetTickData());
         }
 
         public void Register()
         {
+            if (Sockets == null)
+            {
+                Sockets = Clients;
+                mainTimer = new Timer();
+                mainTimer.Elapsed += new ElapsedEventHandler(MainTick);
+                mainTimer.Interval = 30;
+                mainTimer.Start();
+            }
 
+            var client = new Client(Context.ConnectionId);
+            client.Name = "Client " + App.Clients.Count;
+            App.Clients.Add(Context.ConnectionId, client);
         }
 
         public void Resize(long w, long h)
         {
-            
-
             CurrentClient.ViewportW = w;
             CurrentClient.ViewportH = h;
         }
 
         public void Respawn()
         {
-            cl = Clients;
-
-            var client = new Client(Context.ConnectionId);
-            client.Name = "Client " + (globalCounter++);
-            AppClients.Add(Context.ConnectionId, client);
-
             CurrentClient.Respawn();
         }
     }

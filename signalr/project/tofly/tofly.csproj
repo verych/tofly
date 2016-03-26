@@ -101,6 +101,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="classes\app\Client.cs" />
+    <Compile Include="classes\app\Fly.cs" />
+    <Compile Include="classes\app\TickData.cs" />
     <Compile Include="classes\hub\flyHub.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="classes\hub\Startup.cs" />
